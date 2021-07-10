@@ -4,7 +4,7 @@ import h5py
 import time
 import os
 from lib.normalization import *
-from data.TaxiBJ.load_dataset_BJ import load_BJ_dataset
+# from data.TaxiBJ.load_dataset_BJ import load_BJ_dataset
 
 def load_stdata(fname):
     f = h5py.File(fname, 'r')
@@ -126,7 +126,6 @@ def extract_closeness(source, index, end_index, closeness):
     return results
 
 def extract_period(source, index, end_index, period, T=24):
-    len = source.shape[0]
     results = []
     while index < end_index:
         depends = [index - i*T for i in range(1, period + 1)]
@@ -136,7 +135,6 @@ def extract_period(source, index, end_index, period, T=24):
     return results
 
 def extract_trend(source, index, end_index, trend, T=24):
-    len = source.shape[0]
     results = []
     while index < end_index:
         depends = [index - i*T*7 for i in range(1, trend + 1)]
@@ -146,7 +144,6 @@ def extract_trend(source, index, end_index, trend, T=24):
     return results
 
 def extract_external(source, index, end_index, seq):
-    len = source.shape[0]
     results = []
     while index < end_index:
         depends = [index - i for i in range(1, seq + 1)]
@@ -563,4 +560,3 @@ if __name__ == '__main__':
     print(Y_train.shape)
     print(Y_test.shape)
     '''
-

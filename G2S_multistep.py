@@ -1,6 +1,9 @@
 from gcn_layer import *
+from gcn_layer import graph_conv
 import tensorflow as tf
 from lib.metrics import MAE, RMSE, MAPE, MARE, R2
+import numpy as np
+
 
 def Conv_ST(inputs, supports, kt, dim_in, dim_out, activation):
     '''
@@ -37,14 +40,18 @@ def Conv_ST(inputs, supports, kt, dim_in, dim_out, activation):
         conv_out = graph_conv(tf.reshape(x_input, [-1, num_nodes, kt * dim_in]),
                               supports, kt * dim_in, 2 * dim_out)
         conv_out = tf.reshape(conv_out, [-1, T, num_nodes, 2 * dim_out])
+        # EQUATION: 5 - Gated Linear Unit
         out = (conv_out[:, :, :, 0:dim_out] + res_input) * \
               tf.nn.sigmoid(conv_out[:, :, :, dim_out:2 * dim_out])
     if (activation == 'sigmoid'):
+        # EQUATION: 4 - Non-gated version
+        # NOTE: GCN: This condition has nothing to do with sigmoid
         conv_out = graph_conv(tf.reshape(x_input, [-1, num_nodes, kt * dim_in]),
                               supports, kt * dim_in, dim_out)
         out = tf.reshape(conv_out, [-1, T, num_nodes, dim_out])
     # out = tf.nn.relu(conv_out + res_input)
     return out
+
 
 def LN(y0, scope):
     # batch norm
@@ -56,6 +63,7 @@ def LN(y0, scope):
         beta = tf.get_variable('beta', initializer=tf.zeros([1, T, N, C]))
         y0 = (y0 - mu) / tf.sqrt(sigma + 1e-6) * gamma + beta
     return y0
+
 
 def attention_t(query, values, scope):
     '''
@@ -77,9 +85,11 @@ def attention_t(query, values, scope):
         Wq = tf.get_variable('Wq', shape=[Et, T], dtype=tf.float32,
                 initializer=tf.contrib.layers.xavier_initializer())
     value_linear = tf.reshape(tf.transpose(tf.matmul(values, Wv), [1,0,2]), [-1, T])
-    #score = tf.nn.tanh((value_linear + bias_v) + tf.matmul(query, Wq))
+    # score = tf.nn.tanh((value_linear + bias_v) + tf.matmul(query, Wq))
+    # EQUATION: 6 - Temporal Attention
     score = tf.nn.tanh((value_linear + bias_v) + tf.matmul(query, Wq))
     score = tf.nn.softmax(score, dim=1)  # shape is [B,T]
+    # EQUATION: 7 - Transform joint representation by importance
     values = tf.matmul(values_in, tf.expand_dims(score, axis=-1))  # [B,N*F,1]
     values = tf.reshape(tf.transpose(values, [0, 2, 1]), [-1, 1, N, F])
     return values
@@ -89,6 +99,11 @@ def attention_c(query, values, scope):
     :param query: a tensor shaped [B, Et]
     :param values: a tensor shaped [B, 1, H*W, F]
     :return:
+
+    Notes:
+    -----------------
+    B: Batch size
+    Et: External parameters (target hour, etc)
     '''
     Et = query.get_shape().as_list()[1]
     N = values.get_shape().as_list()[2]
@@ -101,10 +116,13 @@ def attention_c(query, values, scope):
         bias_v = tf.get_variable('bias_v', initializer=tf.zeros([F]))
         Wq = tf.get_variable('Wq', shape=[Et, F], dtype=tf.float32,
                 initializer=tf.contrib.layers.xavier_initializer())
+    # EQUATION: 8 - Channel attention
     value_linear = tf.reshape(tf.transpose(tf.matmul(values, Wv), [1, 0,2]), (-1, F))
     score = tf.nn.tanh((value_linear + bias_v) + tf.matmul(query, Wq))
     score = tf.nn.softmax(score, dim=1) #shape is [B,F]
+    # EQUATION: 9 - Apply attention to scores
     values = tf.matmul(values_in, tf.expand_dims(score,axis=-1)) #[B,N,1]
+    # EQUATION: 9 - values = prediction
     return values
 
 class Graph(object):
@@ -158,11 +176,9 @@ class Graph(object):
                     with tf.variable_scope('block7'):
                         gs_inputs = Conv_ST(s_inputs, self.supports, kt=3, dim_in=O, dim_out=32, activation='GLU')
                         gs_inputs = LN(gs_inputs, 'ln7')
-                    '''
-                    with tf.variable_scope('block8'):
-                        gs_inputs = Conv_ST(gs_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-                        gs_inputs = LN(gs_inputs, 'ln8')
-                    '''
+                    # with tf.variable_scope('block8'):
+                    #     gs_inputs = Conv_ST(gs_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
+                    #     gs_inputs = LN(gs_inputs, 'ln8')
                     with tf.variable_scope('block9'):
                         gs_inputs = Conv_ST(gs_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
                         gs_inputs = LN(gs_inputs, 'ln9')
@@ -229,8 +245,3 @@ class Graph(object):
             self.mape.append(mape)
             r2 = R2(i, j)
             self.r2.append(r2)
-
-
-
-
-

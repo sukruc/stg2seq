@@ -1,4 +1,9 @@
-class params_SY(object):
+class ModelParam:
+    threshold = 0.05
+    em_dim = None
+    model_path = 'newmodel'
+
+class params_SY(ModelParam):
     #commen params
     source = 'SY'
     scaler = 81
@@ -29,7 +34,7 @@ class params_SY(object):
     keep_prob = 1
     exlstm_layers = 5
 
-class params_SY_IR(object):
+class params_SY_IR(ModelParam):
     #when DidiSY dataset is partitioned by roadnetworks
     source = 'SY_IR'
     scaler = 70
@@ -60,7 +65,7 @@ class params_SY_IR(object):
     keep_prob = 1
     exlstm_layers = 5
 
-class params_NYC(object):
+class params_NYC(ModelParam):
     source = 'NYC'
     scaler = 267
     batch_size = 32
@@ -75,7 +80,7 @@ class params_NYC(object):
     ew_dim = 0
     horizon = 3
     lr = 0.0007
-    num_epochs = 150
+    num_epochs = 3
     logdir = "train"
     test_days = 10
     delta = 0.5
@@ -90,7 +95,7 @@ class params_NYC(object):
     keep_prob = 1
     exlstm_layers = 3
 
-class params_BJ(object):
+class params_BJ(ModelParam):
     source = 'BJ'
     scaler = 1274
     batch_size = 32

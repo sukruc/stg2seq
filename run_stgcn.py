@@ -7,8 +7,8 @@ import h5py
 from lib.load_dataset import load_dataset_multi_demand_external
 from lib.batch_generator import batch_generator_multi_Y
 from lib.generate_adj import generate_graph_with_data
-from RootPATH import base_dir
-base_dir = os.path.realpath(base_dir)
+# from RootPATH import base_dir
+base_dir = os.path.dirname(os.path.realpath(__file__))
 #config dataset and model
 
 from G2S_multistep import Graph
@@ -80,7 +80,10 @@ config.gpu_options.allow_growth = True
 
 with tf.Session(config=config) as sess:
     saver = tf.train.Saver()
+    writer = tf.summary.FileWriter(logdir=params.model_path+"/current")
+
     sess.run(tf.global_variables_initializer())
+    writer.add_graph(sess.graph)
     best_rmse = 10000
     try:
         for epoch in range(params.num_epochs):
@@ -89,7 +92,8 @@ with tf.Session(config=config) as sess:
             rmse_val = 0
             print("Epoch: {}\t".format(epoch))
             # training
-            num_batches = (X_train[0].shape[0] // params.batch_size) + 1
+            # num_batches = (X_train[0].shape[0] // params.batch_size) + 1
+            num_batches = 10
             '''
             #for dynamic learning rate
             if epoch%params.lr_decay_epoch == 0:
@@ -119,9 +123,11 @@ with tf.Session(config=config) as sess:
                                         feed_dict={model_test.c_inp: x_closeness,
                                                    model_test.et_inp:y_time,
                                                    model_test.labels: y_demand})
+
+            rmse_val = rmse_val[0]
             print("loss: {:.6f}, rmse_val: {:.3f}".format(loss_train, rmse_val))
             # save the model every epoch
-            # g.saver.save(sess, param.model_path+"/current")
+            saver.save(sess, params.model_path+"/current")
             if rmse_val < best_rmse:
                 best_rmse = rmse_val
                 rmse, mae, mape = sess.run([model_test.rmse, model_test.mae, model_test.mape],
@@ -129,8 +135,8 @@ with tf.Session(config=config) as sess:
                                                             model_test.et_inp: y_time,
                                                             model_test.labels: y_demand})
                 #saver.save(sess, './final_model.ckpt')
+    except Exception as e:
+        raise e
     finally:
         print("Finish Learning! Best RMSE is", rmse, "Best MAE is", mae, 'MAPE: ', mape)
         sess.close()
-
-
