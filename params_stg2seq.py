@@ -80,7 +80,7 @@ class params_NYC(ModelParam):
     ew_dim = 0
     horizon = 3
     lr = 0.0007
-    num_epochs = 3
+    num_epochs = 70
     logdir = "train"
     test_days = 10
     delta = 0.5

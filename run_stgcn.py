@@ -15,7 +15,7 @@ from G2S_multistep import Graph
 
 #config
 DATASET = 'NYC'
-DEVICE = '5'
+DEVICE = '0'
 SAVE_SUMMARY = False
 PLOT_DETAIL  = False
 
@@ -92,8 +92,8 @@ with tf.Session(config=config) as sess:
             rmse_val = 0
             print("Epoch: {}\t".format(epoch))
             # training
-            # num_batches = (X_train[0].shape[0] // params.batch_size) + 1
-            num_batches = 10
+            num_batches = (X_train[0].shape[0] // params.batch_size) + 1
+            # num_batches = 10  # TODO: Revert this back
             '''
             #for dynamic learning rate
             if epoch%params.lr_decay_epoch == 0:
