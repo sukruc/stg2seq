@@ -143,10 +143,12 @@ class Graph(object):
         for block in range(1, num_blocks_to_use + 1):
             block_name = 'block' + str(block)
             dim_in = 32
+            input_conv = l_inputs
             if block == 1:
                 dim_in = 0
+                input_conv = inputs
             with tf.variable_scope(block_name):
-                l_inputs = Conv_ST(inputs, self.supports, kt=3, dim_in=dim_in, dim_out=32, activation='GLU')
+                l_inputs = Conv_ST(input_conv, self.supports, kt=3, dim_in=dim_in, dim_out=32, activation='GLU')
                 l_inputs = LN(l_inputs, 'ln' + str(block))
         # #long term encoder, encoding 1 to 12
         # with tf.variable_scope('block1'):
