@@ -94,7 +94,62 @@ def attention_t(query, values, scope):
     values = tf.reshape(tf.transpose(values, [0, 2, 1]), [-1, 1, N, F])
     return values
 
+
 def attention_c(query, values, scope):
+    '''
+    :param query: a tensor shaped [B, Et]
+    :param values: a tensor shaped [B, 1, H*W, F]
+    :return:
+    [B, N, 1]
+
+    Notes:
+    -----------------
+    B: Batch size
+    Et: External parameters (target hour, etc)
+    '''
+    Et = query.get_shape().as_list()[1]
+    N = values.get_shape().as_list()[2]
+    F = values.get_shape().as_list()[3]
+    values_in = tf.reshape(values, [-1, N, F])
+    values = tf.transpose(values_in, [2, 0, 1]) #[F,B,N]
+    # import pdb; pdb.set_trace()
+    with tf.variable_scope(scope):
+
+        Wk = [tf.get_variable(f'Wk{i}', shape=[Et, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wv = [tf.get_variable(f'Wv{i}',shape=[F, N, 1],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wq = [tf.get_variable(f'Wq{i}',shape=[Et, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+
+        bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([F, 1, 1])) for i in range(4)]
+        bias_k = [tf.get_variable(f'bias_k{i}', initializer=tf.zeros([F])) for i in range(4)]
+        bias_q = [tf.get_variable(f'bias_q{i}', initializer=tf.zeros([F])) for i in range(4)]
+
+        mh_attention_weights = tf.get_variable("mh_head", shape=[4*N, N], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
+        # Wk = tf.get_variable('Wk', shape=[Et, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
+        # Wv = tf.get_variable('Wv',shape=[F, N, 1],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
+        # Wq = tf.get_variable('Wq',shape=[Et, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
+
+        # bias_v = tf.get_variable('bias_v', initializer=tf.zeros([F, 1, 1]))
+        # bias_k = tf.get_variable('bias_k', initializer=tf.zeros([F]))
+        # bias_q = tf.get_variable('bias_q', initializer=tf.zeros([F]))
+
+    import pdb; pdb.set_trace(    )
+    Q = [tf.matmul(query, Wq[i]) + bias_q[i] for i in range(4)]
+    K = [tf.matmul(values, Wk[i]) + bias_k[i] for i in range(4)]
+    V = [tf.matmul(values, Wv[i]) + bias_v[i] for i in range(4)]
+
+    att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(4)]
+    att = [tf.transpose(att[i], [1, 0, 2]) for i in range(4)]
+    out = [tf.matmul(values_in, att[i]) for i in range(4)]
+    # import pdb; pdb.set_trace()
+    out = tf.concat(out, axis=1, name='mh_att_concat')
+    out = tf.squeeze(out, axis=2)
+    out = out @ mh_attention_weights
+    out = tf.expand_dims(out, axis=-1)
+
+    return out
+
+
+def attention_c_(query, values, scope):
     '''
     :param query: a tensor shaped [B, Et]
     :param values: a tensor shaped [B, 1, H*W, F]
@@ -124,6 +179,7 @@ def attention_c(query, values, scope):
     values = tf.matmul(values_in, tf.expand_dims(score,axis=-1)) #[B,N,1]
     # EQUATION: 9 - values = prediction
     return values
+
 
 class Graph(object):
     def __init__(self, adj_mx, params, is_training):

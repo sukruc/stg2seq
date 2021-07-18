@@ -66,7 +66,7 @@ train_batch_generator = batch_generator_multi_Y(X_train, Y_train, params.batch_s
 #without: false, false
 with tf.name_scope('Train'):
     with tf.variable_scope('model', reuse=False):
-        model_train = Graph(adj_mx=adj, params=params, is_training=False)
+        model_train = Graph(adj_mx=adj, params=params, is_training=True)
 with tf.name_scope('Test'):
     with tf.variable_scope('model', reuse=True):
         model_test = Graph(adj_mx=adj, params=params, is_training=False)
@@ -79,7 +79,7 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
 with tf.Session(config=config) as sess:
-    saver = tf.train.Saver()
+    # saver = tf.train.Saver()
     writer = tf.summary.FileWriter(logdir=params.model_path+"/current")
 
     sess.run(tf.global_variables_initializer())
@@ -127,7 +127,7 @@ with tf.Session(config=config) as sess:
             rmse_val = rmse_val[0]
             print("loss: {:.6f}, rmse_val: {:.3f}".format(loss_train, rmse_val))
             # save the model every epoch
-            saver.save(sess, params.model_path+"/current")
+            # saver.save(sess, params.model_path+"/current")
             if rmse_val < best_rmse:
                 best_rmse = rmse_val
                 rmse, mae, mape = sess.run([model_test.rmse, model_test.mae, model_test.mape],
