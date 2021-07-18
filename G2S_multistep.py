@@ -145,7 +145,7 @@ class Graph(object):
             block_name = 'block' + str(block)
             dim_in = 32
             if block == 1:
-                dim_in = 0
+                dim_in = O
             with tf.variable_scope(block_name):
                 l_inputs = Conv_ST(input_conv, self.supports, kt=3, dim_in=dim_in, dim_out=32, activation='GLU')
                 l_inputs = LN(l_inputs, 'ln' + str(block))
