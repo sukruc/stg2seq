@@ -126,7 +126,7 @@ def attention_c(query, values, scope):
     return values
 
 class Graph(object):
-    def __init__(self, adj_mx, params, is_training):
+    def __init__(self, adj_mx, params, is_training, num_blocks_to_use=6):
         # self.adj_mx = adj_mx
         self.supports = np.float32(Cheb_Poly(Scaled_Laplacian(adj_mx), 2))
         self.params = params
@@ -140,25 +140,33 @@ class Graph(object):
         self.labels = tf.placeholder(tf.float32, shape=[None, Horizon, H, W, O], name='label')
         labels = tf.reshape(self.labels, (-1, Horizon, H * W, O))
 
-        #long term encoder, encoding 1 to 12
-        with tf.variable_scope('block1'):
-            l_inputs = Conv_ST(inputs, self.supports, kt=3, dim_in=O, dim_out=32, activation ='GLU')
-            l_inputs = LN(l_inputs, 'ln1')
-        with tf.variable_scope('block2'):
-            l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-            l_inputs = LN(l_inputs, 'ln2')
-        with tf.variable_scope('block3'):
-            l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-            l_inputs = LN(l_inputs, 'ln3')
-        with tf.variable_scope('block4'):
-            l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-            l_inputs = LN(l_inputs, 'ln4')
-        with tf.variable_scope('block5'):
-            l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-            l_inputs = LN(l_inputs, 'ln5')
-        with tf.variable_scope('block6'):
-            l_inputs = Conv_ST(l_inputs, self.supports, kt=2, dim_in=32, dim_out=32, activation='GLU')
-            l_inputs = LN(l_inputs, 'ln6')
+        for block in range(1, num_blocks_to_use + 1):
+            block_name = 'block' + str(block)
+            dim_in = 32
+            if block == 1:
+                dim_in = 0
+            with tf.variable_scope(block_name):
+                l_inputs = Conv_ST(inputs, self.supports, kt=3, dim_in=dim_in, dim_out=32, activation='GLU')
+                l_inputs = LN(l_inputs, 'ln' + str(block))
+        # #long term encoder, encoding 1 to 12
+        # with tf.variable_scope('block1'):
+        #     l_inputs = Conv_ST(inputs, self.supports, kt=3, dim_in=O, dim_out=32, activation ='GLU')
+        #     l_inputs = LN(l_inputs, 'ln1')
+        # with tf.variable_scope('block2'):
+        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
+        #     l_inputs = LN(l_inputs, 'ln2')
+        # with tf.variable_scope('block3'):
+        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
+        #     l_inputs = LN(l_inputs, 'ln3')
+        # with tf.variable_scope('block4'):
+        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
+        #     l_inputs = LN(l_inputs, 'ln4')
+        # with tf.variable_scope('block5'):
+        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
+        #     l_inputs = LN(l_inputs, 'ln5')
+        # with tf.variable_scope('block6'):
+        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=2, dim_in=32, dim_out=32, activation='GLU')
+        #     l_inputs = LN(l_inputs, 'ln6')
 
         #short term encoder, working differently for training and testing
         preds = []
