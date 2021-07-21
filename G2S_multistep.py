@@ -110,13 +110,14 @@ def attention_c(query, values, scope):
     Et = query.get_shape().as_list()[1]
     N = values.get_shape().as_list()[2]
     F = values.get_shape().as_list()[3]
-    values_in = tf.reshape(values, [-1, N, F])
-    values = tf.transpose(values_in, [2, 0, 1]) #[F,B,N]
+    # values_in = tf.reshape(values, [-1, N, F])
+    # values = tf.transpose(values_in, [2, 0, 1]) #[F,B,N]
     # import pdb; pdb.set_trace()
+    values = tf.squeeze(values, 1)
     with tf.variable_scope(scope):
 
-        Wk = [tf.get_variable(f'Wk{i}', shape=[Et, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
-        Wv = [tf.get_variable(f'Wv{i}',shape=[F, N, 1],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wk = [tf.get_variable(f'Wk{i}', shape=[F, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wv = [tf.get_variable(f'Wv{i}',shape=[F, N],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
         Wq = [tf.get_variable(f'Wq{i}',shape=[Et, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
 
         bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([F, 1, 1])) for i in range(4)]
@@ -132,7 +133,7 @@ def attention_c(query, values, scope):
         # bias_k = tf.get_variable('bias_k', initializer=tf.zeros([F]))
         # bias_q = tf.get_variable('bias_q', initializer=tf.zeros([F]))
 
-    import pdb; pdb.set_trace(    )
+    import pdb; pdb.set_trace()
     Q = [tf.matmul(query, Wq[i]) + bias_q[i] for i in range(4)]
     K = [tf.matmul(values, Wk[i]) + bias_k[i] for i in range(4)]
     V = [tf.matmul(values, Wv[i]) + bias_v[i] for i in range(4)]
