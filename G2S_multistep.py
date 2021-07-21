@@ -113,18 +113,27 @@ def attention_c(query, values, scope):
     # values_in = tf.reshape(values, [-1, N, F])
     # values = tf.transpose(values_in, [2, 0, 1]) #[F,B,N]
     # import pdb; pdb.set_trace()
-    values = tf.squeeze(values, 1)
+    query = tf.expand_dims(query, axis=1)
+    values_T = tf.transpose(tf.squeeze(values, axis=1), [0, 2, 1])
+    values = tf.squeeze(values, axis=1)
+    # values = tf.squeeze(values, 1)
     with tf.variable_scope(scope):
 
         Wk = [tf.get_variable(f'Wk{i}', shape=[F, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
-        Wv = [tf.get_variable(f'Wv{i}',shape=[F, N],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
-        Wq = [tf.get_variable(f'Wq{i}',shape=[Et, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wv = [tf.get_variable(f'Wv{i}',shape=[F, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wq1 = [tf.get_variable(f'Wq1{i}',shape=[Et, N],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wq2 = [tf.get_variable(f'Wq2{i}',shape=[1, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
 
-        bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([F, 1, 1])) for i in range(4)]
+        bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([F])) for i in range(4)]
         bias_k = [tf.get_variable(f'bias_k{i}', initializer=tf.zeros([F])) for i in range(4)]
         bias_q = [tf.get_variable(f'bias_q{i}', initializer=tf.zeros([F])) for i in range(4)]
 
-        mh_attention_weights = tf.get_variable("mh_head", shape=[4*N, N], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
+        # Wv = tf.get_variable(shape=[N, F], name='Wv')
+        # Wk = tf.get_variable(shape=[F, F], name='Wk')
+        # Wq1 = tf.get_variable(shape=[Et, N], name='Wq1')
+        # Wq2 = tf.get_variable(shape=[1, F], name='Wq2')
+
+        mh_attention_weights = tf.get_variable("mh_head", shape=[4*F, 1], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
         # Wk = tf.get_variable('Wk', shape=[Et, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
         # Wv = tf.get_variable('Wv',shape=[F, N, 1],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
         # Wq = tf.get_variable('Wq',shape=[Et, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
@@ -132,20 +141,30 @@ def attention_c(query, values, scope):
         # bias_v = tf.get_variable('bias_v', initializer=tf.zeros([F, 1, 1]))
         # bias_k = tf.get_variable('bias_k', initializer=tf.zeros([F]))
         # bias_q = tf.get_variable('bias_q', initializer=tf.zeros([F]))
-
-    import pdb; pdb.set_trace()
-    Q = [tf.matmul(query, Wq[i]) + bias_q[i] for i in range(4)]
-    K = [tf.matmul(values, Wk[i]) + bias_k[i] for i in range(4)]
-    V = [tf.matmul(values, Wv[i]) + bias_v[i] for i in range(4)]
-
-    att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(4)]
-    att = [tf.transpose(att[i], [1, 0, 2]) for i in range(4)]
-    out = [tf.matmul(values_in, att[i]) for i in range(4)]
+    # i = 0
     # import pdb; pdb.set_trace()
-    out = tf.concat(out, axis=1, name='mh_att_concat')
-    out = tf.squeeze(out, axis=2)
+    Q = [tf.transpose(query @ Wq1[i], [0, 2, 1]) @ Wq2[i] + bias_q[i] for i in range(4)]
+    K = [values @ Wk[i] + bias_k[i] for i in range(4)]
+    V = [values @ Wv[i] + bias_v[i] for i in range(4)]
+
+    # Q = [tf.matmul(query, Wq[i]) + bias_q[i] for i in range(4)]
+    # K = [tf.matmul(values, Wk[i]) + bias_k[i] for i in range(4)]
+    # V = [tf.matmul(values, Wv[i]) + bias_v[i] for i in range(4)]
+
+    att = [tf.transpose(tf.nn.softmax((Q[i] @ tf.transpose(K[i], [0,2,1])) / F**0.5, axis=2) @ V[i], [0,2,1]) for i in range(4)]
+
+    # att = tf.transpose(tf.reduce_sum((tf.transpose(query @ Wq1, [0, 2, 1]) @ Wq2) @ V, axis=2, keepdims=True), [0,2,1])
+
+    # att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(4)]
+    # att = [tf.transpose(att[i], [1, 0, 2]) for i in range(4)]
+    # out = [tf.matmul(values_in, att[i]) for i in range(4)]
+    # import pdb; pdb.set_trace()
+    out = tf.concat(att, axis=1, name='mh_att_concat')
+    # import pdb; pdb.set_trace()
+    # out = tf.squeeze(out, axis=2)
     out = out @ mh_attention_weights
-    out = tf.expand_dims(out, axis=-1)
+    # out = tf.expand_dims(out, axis=-1)
+    # import pdb; pdb.set_trace()
 
     return out
 
@@ -178,6 +197,7 @@ def attention_c_(query, values, scope):
     score = tf.nn.softmax(score, dim=1) #shape is [B,F]
     # EQUATION: 9 - Apply attention to scores
     values = tf.matmul(values_in, tf.expand_dims(score,axis=-1)) #[B,N,1]
+    import pdb; pdb.set_trace()
     # EQUATION: 9 - values = prediction
     return values
 

@@ -79,8 +79,8 @@ class params_NYC(ModelParam):
     et_dim = 31
     ew_dim = 0
     horizon = 3
-    lr = 0.0015
-    num_epochs = 40
+    lr = 0.0007
+    num_epochs = 150
     logdir = "train"
     test_days = 10
     delta = 0.5
