@@ -302,7 +302,8 @@ def attention_t(query, values, scope, num_attention_heads, attention_type):
 
 
 class Graph(object):
-    def __init__(self, adj_mx, params, is_training, num_blocks_to_use=6):
+    def __init__(self, adj_mx, params, is_training, num_blocks_to_use=6, opt="Adam"):
+
         # self.adj_mx = adj_mx
         self.supports = np.float32(Cheb_Poly(Scaled_Laplacian(adj_mx), 2))
         self.params = params
@@ -315,7 +316,9 @@ class Graph(object):
         self.et_inp = tf.placeholder(tf.float32, (None, Horizon, Et), name='et_inp')
         self.labels = tf.placeholder(tf.float32, shape=[None, Horizon, H, W, O], name='label')
         labels = tf.reshape(self.labels, (-1, Horizon, H * W, O))
+        self.opt = opt
         input_conv = inputs
+
 
         for block in range(1, num_blocks_to_use + 1):
             block_name = 'block' + str(block)
@@ -413,8 +416,16 @@ class Graph(object):
 
         self.loss = tf.nn.l2_loss(self.preds - labels)
         #self.loss = tf.nn.l2_loss(self.preds - labels) + first_loss
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=params.lr, beta1=params.beta1, beta2=params.beta2,
-                                                epsilon=params.epsilon).minimize(self.loss)
+        if(self.opt == "Adam"):
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=params.lr, beta1=params.beta1, beta2=params.beta2,
+                                                    epsilon=params.epsilon).minimize(self.loss)
+        elif(self.opt == "GradientDescent"):
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=params.lr).minimize(self.loss)
+        elif(self.opt == "AdaGrad"):
+            self.optimizer = tf.train.AdagradOptimizer(learning_rate=params.lr).minimize(self.loss)
+        elif(self.opt == "RMSProp"):
+            self.optimizer = tf.train.RMSPropOptimizer(learning_rate=params.lr, epsilon=params.epsilon).minimize(self.loss)
+            
         self.mean_rmse = RMSE(self.preds, labels) * params.scaler
 
         self.mae = []

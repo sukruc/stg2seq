@@ -47,7 +47,7 @@ def generate_graph_with_data(data, length, threshold=0.05):
     sparsity = adj_mx.sum() / (node_num * node_num)
     print("Sparsity of the adjacent matrix is: ", sparsity)
     #print(adj_mx)
-    return adj_mx
+    return adj_mx, sparsity
 
 def generate_graph_with_poi(poi):
     pass
