@@ -2,3 +2,5 @@
 !data/.gitkeep
 data/TaxiBJ/*
 !data/TaxiBJ/.gitkeep
+newmodel/*
+data/201409-citibike-tripdata.csv
