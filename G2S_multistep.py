@@ -95,7 +95,7 @@ def attention_t(query, values, scope):
     return values
 
 
-def attention_c(query, values, scope):
+def attention_c_mul(query, values, scope, num_attention_heads=4):
     '''
     :param query: a tensor shaped [B, Et]
     :param values: a tensor shaped [B, 1, H*W, F]
@@ -119,21 +119,21 @@ def attention_c(query, values, scope):
     # values = tf.squeeze(values, 1)
     with tf.variable_scope(scope):
 
-        Wk = [tf.get_variable(f'Wk{i}', shape=[F, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
-        Wv = [tf.get_variable(f'Wv{i}',shape=[F, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
-        Wq1 = [tf.get_variable(f'Wq1{i}',shape=[Et, N],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
-        Wq2 = [tf.get_variable(f'Wq2{i}',shape=[1, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(4)]
+        Wk = [tf.get_variable(f'Wk{i}', shape=[F, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
+        Wv = [tf.get_variable(f'Wv{i}',shape=[F, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
+        Wq1 = [tf.get_variable(f'Wq1{i}',shape=[Et, N],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
+        Wq2 = [tf.get_variable(f'Wq2{i}',shape=[1, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
 
-        bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([F])) for i in range(4)]
-        bias_k = [tf.get_variable(f'bias_k{i}', initializer=tf.zeros([F])) for i in range(4)]
-        bias_q = [tf.get_variable(f'bias_q{i}', initializer=tf.zeros([F])) for i in range(4)]
+        bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([F])) for i in range(num_attention_heads)]
+        bias_k = [tf.get_variable(f'bias_k{i}', initializer=tf.zeros([F])) for i in range(num_attention_heads)]
+        bias_q = [tf.get_variable(f'bias_q{i}', initializer=tf.zeros([F])) for i in range(num_attention_heads)]
 
         # Wv = tf.get_variable(shape=[N, F], name='Wv')
         # Wk = tf.get_variable(shape=[F, F], name='Wk')
         # Wq1 = tf.get_variable(shape=[Et, N], name='Wq1')
         # Wq2 = tf.get_variable(shape=[1, F], name='Wq2')
 
-        mh_attention_weights = tf.get_variable("mh_head", shape=[4*F, 1], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
+        mh_attention_weights = tf.get_variable("mh_head", shape=[num_attention_heads*F, 1], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
         # Wk = tf.get_variable('Wk', shape=[Et, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
         # Wv = tf.get_variable('Wv',shape=[F, N, 1],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
         # Wq = tf.get_variable('Wq',shape=[Et, F],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer())
@@ -143,25 +143,26 @@ def attention_c(query, values, scope):
         # bias_q = tf.get_variable('bias_q', initializer=tf.zeros([F]))
     # i = 0
     # import pdb; pdb.set_trace()
-    Q = [tf.transpose(query @ Wq1[i], [0, 2, 1]) @ Wq2[i] + bias_q[i] for i in range(4)]
-    K = [values @ Wk[i] + bias_k[i] for i in range(4)]
-    V = [values @ Wv[i] + bias_v[i] for i in range(4)]
+    Q = [tf.transpose(query @ Wq1[i], [0, 2, 1]) @ Wq2[i] + bias_q[i] for i in range(num_attention_heads)]
+    K = [values @ Wk[i] + bias_k[i] for i in range(num_attention_heads)]
+    V = [values @ Wv[i] + bias_v[i] for i in range(num_attention_heads)]
 
-    # Q = [tf.matmul(query, Wq[i]) + bias_q[i] for i in range(4)]
-    # K = [tf.matmul(values, Wk[i]) + bias_k[i] for i in range(4)]
-    # V = [tf.matmul(values, Wv[i]) + bias_v[i] for i in range(4)]
+    # Q = [tf.matmul(query, Wq[i]) + bias_q[i] for i in range(num_attention_heads)]
+    # K = [tf.matmul(values, Wk[i]) + bias_k[i] for i in range(num_attention_heads)]
+    # V = [tf.matmul(values, Wv[i]) + bias_v[i] for i in range(num_attention_heads)]
 
-    att = [tf.transpose(tf.nn.softmax((Q[i] @ tf.transpose(K[i], [0,2,1])) / F**0.5, axis=2) @ V[i], [0,2,1]) for i in range(4)]
+    att = [tf.transpose(tf.nn.softmax((Q[i] @ tf.transpose(K[i], [0,2,1])) / F**0.5, axis=2) @ V[i], [0,2,1]) for i in range(num_attention_heads)]
 
     # att = tf.transpose(tf.reduce_sum((tf.transpose(query @ Wq1, [0, 2, 1]) @ Wq2) @ V, axis=2, keepdims=True), [0,2,1])
 
-    # att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(4)]
-    # att = [tf.transpose(att[i], [1, 0, 2]) for i in range(4)]
-    # out = [tf.matmul(values_in, att[i]) for i in range(4)]
+    # att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(num_attention_heads)]
+    # att = [tf.transpose(att[i], [1, 0, 2]) for i in range(num_attention_heads)]
+    # out = [tf.matmul(values_in, att[i]) for i in range(num_attention_heads)]
     # import pdb; pdb.set_trace()
     out = tf.concat(att, axis=1, name='mh_att_concat')
     # import pdb; pdb.set_trace()
     # out = tf.squeeze(out, axis=2)
+    out = tf.transpose(out, [0, 2, 1])
     out = out @ mh_attention_weights
     # out = tf.expand_dims(out, axis=-1)
     # import pdb; pdb.set_trace()
@@ -169,7 +170,7 @@ def attention_c(query, values, scope):
     return out
 
 
-def attention_c_(query, values, scope):
+def attention_c_add(query, values, scope, num_attention_heads=None):
     '''
     :param query: a tensor shaped [B, Et]
     :param values: a tensor shaped [B, 1, H*W, F]
@@ -197,9 +198,18 @@ def attention_c_(query, values, scope):
     score = tf.nn.softmax(score, dim=1) #shape is [B,F]
     # EQUATION: 9 - Apply attention to scores
     values = tf.matmul(values_in, tf.expand_dims(score,axis=-1)) #[B,N,1]
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     # EQUATION: 9 - values = prediction
     return values
+
+
+def attention_c(query, values, scope, num_attention_heads, attention_type):
+    if attention_type == 'multiplicative':
+        return attention_c_mul(query, values, scope, num_attention_heads=num_attention_heads)
+    elif attention_type == 'additive':
+        return attention_c_add(query, values, scope)
+    else:
+        raise ValueError("Unknown attention type: %s" % attention_type)
 
 
 class Graph(object):
@@ -263,10 +273,10 @@ class Graph(object):
                     print(ls_inputs.shape)
                     ls_inputs = attention_t(et_inp, ls_inputs, 'attn_t')
                     if params.nb_flow == 1:
-                        pred = attention_c(et_inp, ls_inputs, 'dim1')
+                        pred = attention_c(et_inp, ls_inputs, 'dim1', self.params.num_attention_heads, self.params.attention_type)
                     if params.nb_flow == 2:
-                        pred = tf.concat((attention_c(et_inp, ls_inputs, 'dim1'),
-                                          attention_c(et_inp, ls_inputs, 'dim2')), axis=-1)
+                        pred = tf.concat((attention_c(et_inp, ls_inputs, 'dim1', self.params.num_attention_heads, self.params.attention_type),
+                                          attention_c(et_inp, ls_inputs, 'dim2', self.params.num_attention_heads, self.params.attention_type)), axis=-1)
                 preds.append(pred)
         else:
             label_padding = inputs[:, -window:, :, :]
@@ -289,10 +299,10 @@ class Graph(object):
                     print(ls_inputs.shape)
                     ls_inputs = attention_t(et_inp, ls_inputs, 'attn_t')
                     if params.nb_flow == 1:
-                        pred = attention_c(et_inp, ls_inputs, 'dim1')
+                        pred = attention_c(et_inp, ls_inputs, 'dim1', self.params.num_attention_heads, self.params.attention_type)
                     if params.nb_flow == 2:
-                        pred = tf.concat((attention_c(et_inp, ls_inputs, 'dim1'),
-                                          attention_c(et_inp, ls_inputs, 'dim2')), axis=-1)
+                        pred = tf.concat((attention_c(et_inp, ls_inputs, 'dim1', self.params.num_attention_heads, self.params.attention_type),
+                                          attention_c(et_inp, ls_inputs, 'dim2', self.params.num_attention_heads, self.params.attention_type)), axis=-1)
                 label_padding = tf.concat((label_padding[:, 1:,:,:], tf.expand_dims(pred, 1)), axis=1)
                 preds.append(pred)
 

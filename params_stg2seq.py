@@ -1,7 +1,17 @@
-class ModelParam:
+class ParamMeta(type):
+    @property
+    def model_path(self):
+        return f"{self.attention_type}-{self.num_attention_heads}-{self.lr}"
+
+
+class ModelParam(metaclass=ParamMeta):
     threshold = 0.05
     em_dim = None
-    model_path = 'newmodel'
+    # model_path = 'newmodel'
+    num_attention_heads = 64
+    attention_type = 'multiplicative'  # {'additive', 'multiplicative'}
+    lr = 0.0007
+
 
 class params_SY(ModelParam):
     #commen params
@@ -79,8 +89,7 @@ class params_NYC(ModelParam):
     et_dim = 31
     ew_dim = 0
     horizon = 3
-    lr = 0.0007
-    num_epochs = 150
+    num_epochs = 400
     logdir = "train"
     test_days = 10
     delta = 0.5
