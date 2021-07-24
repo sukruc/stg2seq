@@ -19,37 +19,14 @@ DEVICE = '0'
 SAVE_SUMMARY = False
 PLOT_DETAIL  = False
 
-if DATASET == 'SY':
-    from params_stg2seq import params_SY as params
-    didi_data = np.loadtxt(os.path.join(base_dir, 'data/Didi_SY/didi_order_hour_grid.csv'),
-                           delimiter=',', skiprows=1)
-    adj = generate_graph_with_data(didi_data, 144, threshold=params.threshold)
-elif DATASET == 'SY_IR':
-    from params_stgcn import params_SY_IR as params
-    didi_data = np.loadtxt(os.path.join(base_dir, 'data/Didi_SY/didi_order_hour.csv'),
-                           delimiter=',', skiprows=1)
-    adj = generate_graph_with_data(didi_data, 144, threshold=params.threshold)
-elif DATASET == 'NYC':
-    from params_stg2seq import params_NYC as params
-    bike_data = h5py.File(os.path.join(base_dir, 'data/BikeNYC/NYC14_M16x8_T60_NewEnd.h5'), 'r')
-    bike_data = bike_data['data'].value
-    # reshape the data format to [sample_nums, region_nums, dims], 4392 = 24*183
-    bike_data = np.transpose(bike_data, (0, 2, 3, 1))
-    bike_data = np.reshape(bike_data, (4392, -1, 2))
-    adj = generate_graph_with_data(bike_data, params.test_days * 24, threshold=params.threshold)
-elif DATASET == 'BJ':
-    from data.TaxiBJ.load_dataset_BJ import remove_incomplete_days, load_stdata
-    from params_stg2seq import params_BJ as params
-    path = os.path.join(base_dir, 'data/TaxiBJ/BJ15_M32x32_T30_InOut.h5')
-    # BJ dataset has some incomplete days
-    taxi_data, timestamps = load_stdata(path)
-    taxi_data, timestamps = remove_incomplete_days(taxi_data, timestamps, 48)
-    taxi_data = np.transpose(taxi_data, (0, 2, 3, 1))
-    taxi_data = np.reshape(taxi_data, (5520, -1, 2))
-    adj = generate_graph_with_data(taxi_data, params.test_days * 48, threshold=params.threshold)
-else:
-    exit(0)
+from params_stg2seq import params_NYC as params
 
+bike_data = h5py.File(os.path.join(base_dir, 'data/BikeNYC/NYC14_M16x8_T60_NewEnd.h5'), 'r')
+bike_data = bike_data['data'].value
+# reshape the data format to [sample_nums, region_nums, dims], 4392 = 24*183
+bike_data = np.transpose(bike_data, (0, 2, 3, 1))
+bike_data = np.reshape(bike_data, (4392, -1, 2))
+adj = generate_graph_with_data(bike_data, params.test_days * 24, threshold=params.threshold)
 X_train, Y_train, X_test, Y_test, scaler = load_dataset_multi_demand_external(
                                                                 base_dir,
                                                                 params.source, params.nb_flow,
@@ -66,10 +43,30 @@ train_batch_generator = batch_generator_multi_Y(X_train, Y_train, params.batch_s
 #without: false, false
 with tf.name_scope('Train'):
     with tf.variable_scope('model', reuse=False):
-        model_train = Graph(adj_mx=adj, params=params, is_training=True)
+        model_train = Graph(adj_mx=adj, params=params, is_training=False)
+    with tf.variable_scope('model1', reuse=False):
+        model_train_1 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=1)
+    with tf.variable_scope('model2', reuse=False):
+        model_train_2 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=2)
+    with tf.variable_scope('model3', reuse=False):
+        model_train_3 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=3)
+    with tf.variable_scope('model4', reuse=False):
+        model_train_4 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=4)
+    with tf.variable_scope('model5', reuse=False):
+        model_train_5 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=5)
 with tf.name_scope('Test'):
     with tf.variable_scope('model', reuse=True):
         model_test = Graph(adj_mx=adj, params=params, is_training=False)
+    with tf.variable_scope('model1', reuse=True):
+        model_test_1 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=1)
+    with tf.variable_scope('model2', reuse=True):
+        model_test_2 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=2)
+    with tf.variable_scope('model3', reuse=True):
+        model_test_3 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=3)
+    with tf.variable_scope('model4', reuse=True):
+        model_test_4 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=4)
+    with tf.variable_scope('model5', reuse=True):
+        model_test_5 = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=5)
 for var in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
         print(var)
 
@@ -85,11 +82,26 @@ with tf.Session(config=config) as sess:
     sess.run(tf.global_variables_initializer())
     writer.add_graph(sess.graph)
     best_rmse = 10000
+    best_rmse1 = 10000
+    best_rmse2 = 10000
+    best_rmse3 = 10000
+    best_rmse4 = 10000
+    best_rmse5 = 10000
     try:
         for epoch in range(params.num_epochs):
             loss_train = 0
+            loss_train_1 = 0
+            loss_train_2 = 0
+            loss_train_3 = 0
+            loss_train_4 = 0
+            loss_train_5 = 0
             loss_val = 0
             rmse_val = 0
+            rmse_val1 = 0
+            rmse_val2 = 0
+            rmse_val3 = 0
+            rmse_val4 = 0
+            rmse_val5 = 0
             print("Epoch: {}\t".format(epoch))
             # training
             num_batches = (X_train[0].shape[0] // params.batch_size) + 1
@@ -113,7 +125,32 @@ with tf.Session(config=config) as sess:
                     model_train.c_inp: x_closeness,
                     model_train.et_inp:y_time,
                     model_train.labels: y_demand})
+                loss_tr1, _ = sess.run([model_train_1.loss, model_train_1.optimizer], feed_dict={
+                    model_train_1.c_inp: x_closeness,
+                    model_train_1.et_inp: y_time,
+                    model_train_1.labels: y_demand})
+                loss_tr2, _ = sess.run([model_train_2.loss, model_train_2.optimizer], feed_dict={
+                    model_train_2.c_inp: x_closeness,
+                    model_train_2.et_inp: y_time,
+                    model_train_2.labels: y_demand})
+                loss_tr3, _ = sess.run([model_train_3.loss, model_train_3.optimizer], feed_dict={
+                    model_train_3.c_inp: x_closeness,
+                    model_train_3.et_inp: y_time,
+                    model_train_3.labels: y_demand})
+                loss_tr4, _ = sess.run([model_train_4.loss, model_train_4.optimizer], feed_dict={
+                    model_train_4.c_inp: x_closeness,
+                    model_train_4.et_inp: y_time,
+                    model_train_4.labels: y_demand})
+                loss_tr5, _ = sess.run([model_train_5.loss, model_train_5.optimizer], feed_dict={
+                    model_train_5.c_inp: x_closeness,
+                    model_train_5.et_inp: y_time,
+                    model_train_5.labels: y_demand})
                 loss_train = loss_tr  + loss_train
+                loss_train_1 = loss_tr1 + loss_train_1
+                loss_train_2 = loss_tr2 + loss_train_2
+                loss_train_3 = loss_tr3 + loss_train_3
+                loss_train_4 = loss_tr4 + loss_train_4
+                loss_train_5 = loss_tr5 + loss_train_5
             # testing
             x_closeness = X_test[0]
             x_external = X_test[1]
@@ -123,9 +160,40 @@ with tf.Session(config=config) as sess:
                                         feed_dict={model_test.c_inp: x_closeness,
                                                    model_test.et_inp:y_time,
                                                    model_test.labels: y_demand})
+            loss_v1, rmse_val1 = sess.run([model_test_1.loss, model_test_1.rmse],
+                                        feed_dict={model_test_1.c_inp: x_closeness,
+                                                   model_test_1.et_inp:y_time,
+                                                   model_test_1.labels: y_demand})
+            loss_v2, rmse_val2 = sess.run([model_test_2.loss, model_test_2.rmse],
+                                        feed_dict={model_test_2.c_inp: x_closeness,
+                                                   model_test_2.et_inp:y_time,
+                                                   model_test_2.labels: y_demand})
+            loss_v3, rmse_val3 = sess.run([model_test_3.loss, model_test_3.rmse],
+                                        feed_dict={model_test_3.c_inp: x_closeness,
+                                                   model_test_3.et_inp:y_time,
+                                                   model_test_3.labels: y_demand})
+            loss_v4, rmse_val4 = sess.run([model_test_4.loss, model_test_4.rmse],
+                                        feed_dict={model_test_4.c_inp: x_closeness,
+                                                   model_test_4.et_inp:y_time,
+                                                   model_test_4.labels: y_demand})
+            loss_v5, rmse_val5 = sess.run([model_test_5.loss, model_test_5.rmse],
+                                        feed_dict={model_test_5.c_inp: x_closeness,
+                                                   model_test_5.et_inp:y_time,
+                                                   model_test_5.labels: y_demand})
 
             rmse_val = rmse_val[0]
-            print("loss: {:.6f}, rmse_val: {:.3f}".format(loss_train, rmse_val))
+            rmse_val1 = rmse_val1[0]
+            rmse_val2 = rmse_val2[0]
+            rmse_val3 = rmse_val3[0]
+            rmse_val4 = rmse_val4[0]
+            rmse_val5 = rmse_val5[0]
+            print("1 block loss: {:.6f}, rmse_val: {:.3f}".format(loss_train_1, rmse_val1))
+            print("2 block loss: {:.6f}, rmse_val: {:.3f}".format(loss_train_2, rmse_val2))
+            print("3 block loss: {:.6f}, rmse_val: {:.3f}".format(loss_train_3, rmse_val3))
+            print("4 block loss: {:.6f}, rmse_val: {:.3f}".format(loss_train_4, rmse_val4))
+            print("5 block loss: {:.6f}, rmse_val: {:.3f}".format(loss_train_5, rmse_val5))
+            print("6 block loss: {:.6f}, rmse_val: {:.3f}".format(loss_train, rmse_val))
+
             # save the model every epoch
             # saver.save(sess, params.model_path+"/current")
             if rmse_val < best_rmse:
@@ -134,9 +202,44 @@ with tf.Session(config=config) as sess:
                                                  feed_dict={model_test.c_inp: x_closeness,
                                                             model_test.et_inp: y_time,
                                                             model_test.labels: y_demand})
+            if rmse_val1 < best_rmse1:
+                best_rmse1 = rmse_val1
+                rmse1, mae1, mape1 = sess.run([model_test_1.rmse, model_test_1.mae, model_test_1.mape],
+                                           feed_dict={model_test_1.c_inp: x_closeness,
+                                                      model_test_1.et_inp: y_time,
+                                                      model_test_1.labels: y_demand})
+            if rmse_val2 < best_rmse2:
+                best_rmse2 = rmse_val2
+                rmse2, mae2, mape2 = sess.run([model_test_2.rmse, model_test_2.mae, model_test_2.mape],
+                                           feed_dict={model_test_2.c_inp: x_closeness,
+                                                      model_test_2.et_inp: y_time,
+                                                      model_test_2.labels: y_demand})
+            if rmse_val3 < best_rmse3:
+                best_rmse3 = rmse_val3
+                rmse3, mae3, mape3 = sess.run([model_test_3.rmse, model_test_3.mae, model_test_3.mape],
+                                           feed_dict={model_test_3.c_inp: x_closeness,
+                                                      model_test_3.et_inp: y_time,
+                                                      model_test_3.labels: y_demand})
+            if rmse_val4 < best_rmse4:
+                best_rmse4 = rmse_val4
+                rmse4, mae4, mape4 = sess.run([model_test_4.rmse, model_test_4.mae, model_test_4.mape],
+                                           feed_dict={model_test_4.c_inp: x_closeness,
+                                                      model_test_4.et_inp: y_time,
+                                                      model_test_4.labels: y_demand})
+            if rmse_val5 < best_rmse5:
+                best_rmse5 = rmse_val5
+                rmse5, mae5, mape5 = sess.run([model_test_5.rmse, model_test_5.mae, model_test_5.mape],
+                                           feed_dict={model_test_5.c_inp: x_closeness,
+                                                      model_test_5.et_inp: y_time,
+                                                      model_test_5.labels: y_demand})
                 #saver.save(sess, './final_model.ckpt')
     except Exception as e:
         raise e
     finally:
-        print("Finish Learning! Best RMSE is", rmse, "Best MAE is", mae, 'MAPE: ', mape)
+        print("1 block Finish Learning! Best RMSE is", rmse1, "Best MAE is", mae1, 'MAPE: ', mape1)
+        print("2 blocks Finish Learning! Best RMSE is", rmse2, "Best MAE is", mae2, 'MAPE: ', mape2)
+        print("3 blocks Finish Learning! Best RMSE is", rmse3, "Best MAE is", mae3, 'MAPE: ', mape3)
+        print("4 blocks Finish Learning! Best RMSE is", rmse4, "Best MAE is", mae4, 'MAPE: ', mape4)
+        print("5 blocks Finish Learning! Best RMSE is", rmse5, "Best MAE is", mae5, 'MAPE: ', mape5)
+        print("6 blocks Finish Learning! Best RMSE is", rmse, "Best MAE is", mae, 'MAPE: ', mape)
         sess.close()
