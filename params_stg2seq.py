@@ -1,16 +1,23 @@
 class ParamMeta(type):
+    channel_attention_type = 'additive'
+    temporal_attention_type = 'additive'
+    num_attention_heads = 4
+    lr = 0.0007
     @property
     def model_path(self):
-        return f"{self.attention_type}-{self.num_attention_heads}-{self.lr}"
+        return f"{self.channel_attention_type}-{self.temporal_attention_type}-{self.num_attention_heads}-{self.lr}"
 
 
 class ModelParam(metaclass=ParamMeta):
     threshold = 0.05
     em_dim = None
     # model_path = 'newmodel'
-    num_attention_heads = 64
-    attention_type = 'multiplicative'  # {'additive', 'multiplicative'}
-    lr = 0.0007
+    num_attention_heads = 2
+    num_blocks_to_use = 3
+    num_epochs = 50
+    temporal_attention_type = 'additive'  # {'additive', 'multiplicative'}
+    channel_attention_type = 'additive'
+    batch_size = 32
 
 
 class params_SY(ModelParam):
@@ -78,7 +85,6 @@ class params_SY_IR(ModelParam):
 class params_NYC(ModelParam):
     source = 'NYC'
     scaler = 267
-    batch_size = 32
     map_height = 16
     map_width = 8
     closeness_sequence_length = 5
@@ -89,7 +95,6 @@ class params_NYC(ModelParam):
     et_dim = 31
     ew_dim = 0
     horizon = 3
-    num_epochs = 400
     logdir = "train"
     test_days = 10
     delta = 0.5
