@@ -126,7 +126,7 @@ def attention_c(query, values, scope):
     return values
 
 class Graph(object):
-    def __init__(self, adj_mx, params, is_training):
+    def __init__(self, adj_mx, params, is_training, opt="Adam"):
         # self.adj_mx = adj_mx
         self.supports = np.float32(Cheb_Poly(Scaled_Laplacian(adj_mx), 2))
         self.params = params
@@ -139,6 +139,7 @@ class Graph(object):
         self.et_inp = tf.placeholder(tf.float32, (None, Horizon, Et), name='et_inp')
         self.labels = tf.placeholder(tf.float32, shape=[None, Horizon, H, W, O], name='label')
         labels = tf.reshape(self.labels, (-1, Horizon, H * W, O))
+        self.opt = opt
 
         #long term encoder, encoding 1 to 12
         with tf.variable_scope('block1'):
@@ -227,8 +228,16 @@ class Graph(object):
 
         self.loss = tf.nn.l2_loss(self.preds - labels)
         #self.loss = tf.nn.l2_loss(self.preds - labels) + first_loss
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=params.lr, beta1=params.beta1, beta2=params.beta2,
-                                                epsilon=params.epsilon).minimize(self.loss)
+        if(self.opt == "Adam"):
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=params.lr, beta1=params.beta1, beta2=params.beta2,
+                                                    epsilon=params.epsilon).minimize(self.loss)
+        elif(self.opt == "GradientDescent"):
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=params.lr).minimize(self.loss)
+        elif(self.opt == "AdaGrad"):
+            self.optimizer = tf.train.AdagradOptimizer(learning_rate=params.lr).minimize(self.loss)
+        elif(self.opt == "RMSProp"):
+            self.optimizer = tf.train.RMSPropOptimizer(learning_rate=params.lr, epsilon=params.epsilon).minimize(self.loss)
+            
         self.mean_rmse = RMSE(self.preds, labels) * params.scaler
 
         self.mae = []
