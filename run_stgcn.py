@@ -43,11 +43,11 @@ train_batch_generator = batch_generator_multi_Y(X_train, Y_train, params.batch_s
 #without: false, false
 with tf.name_scope('Train'):
     with tf.variable_scope('model', reuse=False):
-        model_train = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use)
+        model_train = Graph(adj_mx=adj[0], params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use, opt=params.optimizer)
 
 with tf.name_scope('Test'):
     with tf.variable_scope('model', reuse=True):
-        model_test = Graph(adj_mx=adj, params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use)
+        model_test = Graph(adj_mx=adj[0], params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use, opt=params.optimizer)
 
 for var in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
         print(var)
@@ -127,5 +127,5 @@ with tf.Session(config=config) as sess:
         raise e
     finally:
 
-        print("6 blocks Finish Learning! Best RMSE is", rmse, "Best MAE is", mae, 'MAPE: ', mape)
+        print("Finish Learning! Best RMSE is", rmse, "Best MAE is", mae, 'MAPE: ', mape)
         sess.close()
