@@ -26,7 +26,8 @@ bike_data = bike_data['data'].value
 # reshape the data format to [sample_nums, region_nums, dims], 4392 = 24*183
 bike_data = np.transpose(bike_data, (0, 2, 3, 1))
 bike_data = np.reshape(bike_data, (4392, -1, 2))
-adj = generate_graph_with_data(bike_data, params.test_days * 24, threshold=params.threshold)
+# adj = generate_graph_with_data(bike_data, params.test_days * 24, threshold=params.threshold)
+adj = generate_graph_with_data(bike_data[:-params.test_days * 24], params.test_days * 24, threshold=params.threshold)
 X_train, Y_train, X_test, Y_test, scaler = load_dataset_multi_demand_external(
                                                                 base_dir,
                                                                 params.source, params.nb_flow,
@@ -43,11 +44,11 @@ train_batch_generator = batch_generator_multi_Y(X_train, Y_train, params.batch_s
 #without: false, false
 with tf.name_scope('Train'):
     with tf.variable_scope('model', reuse=False):
-        model_train = Graph(adj_mx=adj[0], params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use, opt=params.optimizer)
+        model_train = Graph(adj_mx=adj[0], params=params, is_training=True, num_blocks_to_use=params.num_blocks_to_use, opt=params.optimizer, num_self_attention_blocks=params.num_self_attention_blocks)
 
 with tf.name_scope('Test'):
     with tf.variable_scope('model', reuse=True):
-        model_test = Graph(adj_mx=adj[0], params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use, opt=params.optimizer)
+        model_test = Graph(adj_mx=adj[0], params=params, is_training=False, num_blocks_to_use=params.num_blocks_to_use, opt=params.optimizer, num_self_attention_blocks=params.num_self_attention_blocks)
 
 for var in tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
         print(var)
