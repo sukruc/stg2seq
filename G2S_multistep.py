@@ -83,7 +83,6 @@ def attention_t_mul(query, values, scope, num_attention_heads=4):
     T = values.get_shape().as_list()[1]
     # values_in = tf.reshape(values, [-1, N, F])
     # values = tf.transpose(values_in, [2, 0, 1]) #[F,B,N]
-    # import pdb; pdb.set_trace()
     query = tf.expand_dims(query, axis=1)
     # values = tf.reshape(values, [-1, T, N * F])
     values_T = tf.transpose(values, [0, 3, 2, 1])
@@ -115,7 +114,6 @@ def attention_t_mul(query, values, scope, num_attention_heads=4):
         # bias_k = tf.get_variable('bias_k', initializer=tf.zeros([F]))
         # bias_q = tf.get_variable('bias_q', initializer=tf.zeros([F]))
     # i = 0
-    # import pdb; pdb.set_trace()
     Q = [tf.expand_dims(tf.transpose(query @ Wq1[i], [0, 2, 1]), axis=1) @ Wq2[i] + bias_q[i] for i in range(num_attention_heads)]
     K = [values_T @ Wk[i] + bias_k[i] for i in range(num_attention_heads)]
     V = [values_T @ Wv[i] + bias_v[i] for i in range(num_attention_heads)]
@@ -130,17 +128,13 @@ def attention_t_mul(query, values, scope, num_attention_heads=4):
     # att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(num_attention_heads)]
     # att = [tf.transpose(att[i], [1, 0, 2]) for i in range(num_attention_heads)]
     # out = [tf.matmul(values_in, att[i]) for i in range(num_attention_heads)]
-    # import pdb; pdb.set_trace()
     out = tf.concat(att, axis=3, name='mh_att_concat')
-    # import pdb; pdb.set_trace()
     # out = tf.squeeze(out, axis=2)
     # out = tf.transpose(out, [0, 2, 1])
     out = out @ mh_attention_weights
     out = tf.transpose(out, [0, 3, 2, 1])
-    # import pdb; pdb.set_trace()
     # out = tf.reshape(out, [-1, 1, N, F])
     # out = tf.expand_dims(out, axis=-1)
-    # import pdb; pdb.set_trace()
 
     return out
 
@@ -192,7 +186,6 @@ def attention_c_mul(query, values, scope, num_attention_heads=4):
     F = values.get_shape().as_list()[3]
     # values_in = tf.reshape(values, [-1, N, F])
     # values = tf.transpose(values_in, [2, 0, 1]) #[F,B,N]
-    # import pdb; pdb.set_trace()
     query = tf.expand_dims(query, axis=1)
     values_T = tf.transpose(tf.squeeze(values, axis=1), [0, 2, 1])
     values = tf.squeeze(values, axis=1)
@@ -222,7 +215,6 @@ def attention_c_mul(query, values, scope, num_attention_heads=4):
         # bias_k = tf.get_variable('bias_k', initializer=tf.zeros([F]))
         # bias_q = tf.get_variable('bias_q', initializer=tf.zeros([F]))
     # i = 0
-    # import pdb; pdb.set_trace()
     Q = [tf.transpose(query @ Wq1[i], [0, 2, 1]) @ Wq2[i] + bias_q[i] for i in range(num_attention_heads)]
     K = [values @ Wk[i] + bias_k[i] for i in range(num_attention_heads)]
     V = [values @ Wv[i] + bias_v[i] for i in range(num_attention_heads)]
@@ -238,14 +230,11 @@ def attention_c_mul(query, values, scope, num_attention_heads=4):
     # att = [tf.nn.softmax((Q[i] @ tf.transpose(K[i])) / (F)**0.5, axis=1) @ V[i] for i in range(num_attention_heads)]
     # att = [tf.transpose(att[i], [1, 0, 2]) for i in range(num_attention_heads)]
     # out = [tf.matmul(values_in, att[i]) for i in range(num_attention_heads)]
-    # import pdb; pdb.set_trace()
     out = tf.concat(att, axis=1, name='mh_att_concat')
-    # import pdb; pdb.set_trace()
     # out = tf.squeeze(out, axis=2)
     out = tf.transpose(out, [0, 2, 1])
     out = out @ mh_attention_weights
     # out = tf.expand_dims(out, axis=-1)
-    # import pdb; pdb.set_trace()
 
     return out
 
@@ -278,7 +267,6 @@ def attention_c_add(query, values, scope, num_attention_heads=None):
     score = tf.nn.softmax(score, dim=1) #shape is [B,F]
     # EQUATION: 9 - Apply attention to scores
     values = tf.matmul(values_in, tf.expand_dims(score,axis=-1)) #[B,N,1]
-    # import pdb; pdb.set_trace()
     # EQUATION: 9 - values = prediction
     return values
 
@@ -301,8 +289,43 @@ def attention_t(query, values, scope, num_attention_heads, attention_type):
         raise ValueError("Unknown attention type: %s" % attention_type)
 
 
+def self_attention(inputs, scope):
+    num_attention_heads = 2
+    F = inputs.get_shape().as_list()[3]
+    dk = 2 * F
+
+    with tf.variable_scope(scope):
+
+        Wk = [tf.get_variable(f'Wk{i}', shape=[F, dk], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
+        Wv = [tf.get_variable(f'Wv{i}',shape=[F, dk],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
+        Wq = [tf.get_variable(f'Wq1{i}',shape=[F, dk],dtype=tf.float32,initializer=tf.contrib.layers.xavier_initializer()) for i in range(num_attention_heads)]
+
+        bias_v = [tf.get_variable(f'bias_v{i}', initializer=tf.zeros([dk])) for i in range(num_attention_heads)]
+        bias_k = [tf.get_variable(f'bias_k{i}', initializer=tf.zeros([dk])) for i in range(num_attention_heads)]
+        bias_q = [tf.get_variable(f'bias_q{i}', initializer=tf.zeros([dk])) for i in range(num_attention_heads)]
+
+        # Wv = tf.get_variable(shape=[N, F], name='Wv')
+        # Wk = tf.get_variable(shape=[F, F], name='Wk')
+        # Wq1 = tf.get_variable(shape=[Et, N], name='Wq1')
+        # Wq2 = tf.get_variable(shape=[1, F], name='Wq2')
+
+        mh_attention_weights = tf.get_variable("mh_head", shape=[num_attention_heads*dk, F], dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer())
+
+    Q = [inputs @ wq + bq for wq, bq in zip(Wq, bias_q)]
+    K = [inputs @ wk + bk for wk, bk in zip(Wk, bias_k)]
+    V = [inputs @ wv + bv for wv, bv in zip(Wv, bias_v)]
+
+    attn = [tf.nn.softmax(Q[i] @ tf.transpose(K[i], [0,1,3,2]) / dk**0.5, axis=3) @ V[i] for i in range(num_attention_heads)]
+    attn = tf.concat(attn, axis=3)
+    attn = attn @ mh_attention_weights
+    inputs = LN(attn + inputs, scope)
+    return inputs
+
+
+
+
 class Graph(object):
-    def __init__(self, adj_mx, params, is_training, num_blocks_to_use=6, opt="Adam"):
+    def __init__(self, adj_mx, params, is_training, num_blocks_to_use=6, opt="Adam", num_self_attention_blocks=0):
 
         # self.adj_mx = adj_mx
         self.supports = np.float32(Cheb_Poly(Scaled_Laplacian(adj_mx), 2))
@@ -327,27 +350,8 @@ class Graph(object):
                 dim_in = O
             with tf.variable_scope(block_name):
                 l_inputs = Conv_ST(input_conv, self.supports, kt=3, dim_in=dim_in, dim_out=32, activation='GLU')
-                l_inputs = LN(l_inputs, 'ln' + str(block))
+                l_inputs = LN(l_inputs + input_conv if block > 2 else l_inputs, 'ln' + str(block))
                 input_conv = l_inputs
-        # #long term encoder, encoding 1 to 12
-        # with tf.variable_scope('block1'):
-        #     l_inputs = Conv_ST(inputs, self.supports, kt=3, dim_in=O, dim_out=32, activation ='GLU')
-        #     l_inputs = LN(l_inputs, 'ln1')
-        # with tf.variable_scope('block2'):
-        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-        #     l_inputs = LN(l_inputs, 'ln2')
-        # with tf.variable_scope('block3'):
-        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-        #     l_inputs = LN(l_inputs, 'ln3')
-        # with tf.variable_scope('block4'):
-        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-        #     l_inputs = LN(l_inputs, 'ln4')
-        # with tf.variable_scope('block5'):
-        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
-        #     l_inputs = LN(l_inputs, 'ln5')
-        # with tf.variable_scope('block6'):
-        #     l_inputs = Conv_ST(l_inputs, self.supports, kt=2, dim_in=32, dim_out=32, activation='GLU')
-        #     l_inputs = LN(l_inputs, 'ln6')
 
         #short term encoder, working differently for training and testing
         preds = []
@@ -372,6 +376,8 @@ class Graph(object):
                         gs_inputs = Conv_ST(gs_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
                         gs_inputs = LN(gs_inputs, 'ln9')
                     ls_inputs = tf.concat((gs_inputs, l_inputs), axis=1)
+                    for i in range(num_self_attention_blocks):
+                        ls_inputs = self_attention(ls_inputs, f"self_attention_{i}")
                     print(ls_inputs.shape)
                     ls_inputs = attention_t(et_inp, ls_inputs, 'attn_t', self.params.num_attention_heads, self.params.temporal_attention_type)
                     if params.nb_flow == 1:
@@ -398,6 +404,10 @@ class Graph(object):
                         gs_inputs = Conv_ST(gs_inputs, self.supports, kt=3, dim_in=32, dim_out=32, activation='GLU')
                         gs_inputs = LN(gs_inputs, 'ln9')
                     ls_inputs = tf.concat((gs_inputs, l_inputs), axis=1)
+
+                    for i in range(num_self_attention_blocks):
+                        ls_inputs = self_attention(ls_inputs, f"self_attention_{i}")
+
                     print(ls_inputs.shape)
                     ls_inputs = attention_t(et_inp, ls_inputs, 'attn_t', self.params.num_attention_heads, self.params.temporal_attention_type)
                     if params.nb_flow == 1:
@@ -425,7 +435,7 @@ class Graph(object):
             self.optimizer = tf.train.AdagradOptimizer(learning_rate=params.lr).minimize(self.loss)
         elif(self.opt == "RMSProp"):
             self.optimizer = tf.train.RMSPropOptimizer(learning_rate=params.lr, epsilon=params.epsilon).minimize(self.loss)
-            
+
         self.mean_rmse = RMSE(self.preds, labels) * params.scaler
 
         self.mae = []
