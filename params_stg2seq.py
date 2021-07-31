@@ -14,10 +14,12 @@ class ModelParam(metaclass=ParamMeta):
     # model_path = 'newmodel'
     num_attention_heads = 2
     num_blocks_to_use = 3
+    num_self_attention_blocks = 8
     num_epochs = 50
     temporal_attention_type = 'additive'  # {'additive', 'multiplicative'}
     channel_attention_type = 'additive'
     batch_size = 32
+    optimizer = 'Adam'
 
 
 class params_SY(ModelParam):
